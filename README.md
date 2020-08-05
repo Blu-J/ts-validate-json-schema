@@ -1,5 +1,5 @@
 # ts-validate-json-schema
-The problem that we want solved is that we have generated out some JSON-Schema, but we would like the types in typescript. As well, we would like to validate these types are valid.
+The problem that we want solved is that we have generated out some JSON-Schema, but we would like the types in typescript. As well, we would like to validate these types are valid (throw/ case switch).
 
 ## Example Usuage
 
