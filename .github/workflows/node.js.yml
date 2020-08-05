@@ -25,6 +25,15 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm run ci
+  
+  coverage:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [14.x]
+
+    steps:
       - name: "Code coverage"
         uses: mattallty/jest-github-action@v1
         env:
