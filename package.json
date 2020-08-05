@@ -10,24 +10,29 @@
     "lib/"
   ],
   "dependencies": {
-    "ts-matches": "^3.2.1"
+    "ts-matches": ">=3.5.0"
   },
   "devDependencies": {
     "@types/jest": "^26.0.8",
+    "concurrently": "^5.2.0",
     "jest": "^26.2.2",
     "prettier": "^2.0.5",
+    "ts-jest": "^26.1.4",
     "tslint": "^6.1.3",
     "typescript": "^3.9.7"
   },
   "scripts": {
-    "ci": "npm run build && npm run test && npm run lint && npm run pretty-check",
+    "ci": "concurrently -n build,test,lint,pretty \"npm run build\" \"npm run test\" \"npm run lint\" \"npm run pretty-check\"",
     "build": "tsc",
-    "test": "jest",
+    "test": "jest --coverage",
     "lint": "tslint --project tsconfig.json --format stylish",
     "pretty-check": "prettier --check src",
     "fmt": "prettier --write src"
   },
   "jest": {
+    "transform": {
+      ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js"
+    },
     "testRegex": "/src/.*.spec.(jsx?|tsx?)$",
     "moduleFileExtensions": [
       "ts",

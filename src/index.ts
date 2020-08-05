@@ -1,7 +1,4 @@
-
 import { default as matches, Validator } from "ts-matches";
-
-
 
 const matchSchemaObject = matches.every(
   matches.shape({
@@ -82,6 +79,14 @@ export type SchemaType<T extends SchemaTop> = T extends SchemaObject<any>
   ? Array<SchemaType<U>>
   : never;
 
+function tryJson(x: unknown) {
+  try {
+    return JSON.stringify(x);
+  } catch (e) {
+    return "" + x;
+  }
+}
+
 export function asSchemaMatcher<T extends SchemaTop>(
   schema: T
 ): Validator<SchemaType<T>> {
@@ -89,10 +94,10 @@ export function asSchemaMatcher<T extends SchemaTop>(
     .when(matchSchemaInteger, (_) => matches.number)
     .when(matchSchemaObject, (schemaObject) => {
       const properties = schemaObject.properties || {};
-      const propertyKeys = Object.keys(properties)
+      const propertyKeys = Object.keys(properties);
       const required = schemaObject.required || [];
-      let requireds: {[key: string]: Validator<unknown>} = {};
-      let partials: {[key: string]: Validator<unknown>} = {};
+      let requireds: { [key: string]: Validator<unknown> } = {};
+      let partials: { [key: string]: Validator<unknown> } = {};
 
       for (const key of propertyKeys) {
         const matcher = asSchemaMatcher((properties as any)[key]);
@@ -113,9 +118,8 @@ export function asSchemaMatcher<T extends SchemaTop>(
       }
       return matches.arrayOf(matches.any);
     })
-    .defaultToLazy(() =>
-      matches.guard((_) => false, "typeMatcherNotFound")
-    ) as any;
+    .defaultToLazy(() => {
+      throw new Error(`Unknown schema: ${tryJson(schema)}`);
+    }) as any;
   return matcher;
 }
-
