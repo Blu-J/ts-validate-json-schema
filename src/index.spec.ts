@@ -21,7 +21,7 @@ test("Validate simple object", () => {
     type: "object",
   });
   matcher.unsafeCast({});
-})
+});
 
 describe("https://json-schema.org/learn/getting-started-step-by-step.html", () => {
   const testSchema = {
