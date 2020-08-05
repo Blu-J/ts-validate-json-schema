@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+      "module": "commonjs",
+      "strict": true,
+      "outDir": "lib",
+      "preserveConstEnums": true,
+      "sourceMap": true,
+      "target": "es2017",
+      "declaration": true,
+      "noImplicitAny": true
+    },
+    "include": ["src/**/*"]
+  }
+  
