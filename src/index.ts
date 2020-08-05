@@ -40,14 +40,14 @@ type SchemaArray<U extends Schema> = {
     });
 type SchemaObject<T extends { [key: string]: Schema }> = {
   type: "object";
-  readonly required?: readonly (keyof T & string)[];
+  required?: readonly (keyof T & string)[] | (keyof T & string)[];
   properties?: T;
 };
 
 type AnyInLiteral<T extends any[] | readonly any[]> = T[number];
 type SchemaTypeForObject<A> = A extends SchemaObject<infer B>
   ? A["required"] extends infer C
-    ? C extends readonly (keyof B & string)[]
+    ? C extends readonly (keyof B & string)[] | (keyof B & string)[]
       ? {
           [K in Exclude<keyof B, AnyInLiteral<C>>]?: SchemaType<B[K]>;
         } &
@@ -65,9 +65,16 @@ type Schema =
   | SchemaBool
   | SchemaArray<any>;
 
-export type SchemaTop = { [key: string]: unknown } & Schema;
+/**
+ * This is a JSON schema duck shaped, so we care about what we are looking for, and
+ * won't throw for extras added
+ */
+export type SchemaDuck = { [key: string]: unknown } & Schema;
 
-export type SchemaType<T extends SchemaTop> = T extends SchemaObject<any>
+/**
+ * This schema is to pull out the typescript type from a json Schema
+ */
+export type SchemaType<T extends SchemaDuck> = T extends SchemaObject<any>
   ? SchemaTypeForObject<T>
   : T extends SchemaInteger
   ? number
@@ -87,7 +94,13 @@ function tryJson(x: unknown) {
   }
 }
 
-export function asSchemaMatcher<T extends SchemaTop>(
+/**
+ * This is the main function. Use this to turn a json-schema into a validator. Is
+ * built on the ts-matches validator since that is a validator that also gives the
+ * types out for typescript.
+ * @param schema So this is a json schema that we want to turn into a validator
+ */
+export function asSchemaMatcher<T extends SchemaDuck>(
   schema: T
 ): Validator<SchemaType<T>> {
   const matcher = matches<Validator<any>>(schema)
