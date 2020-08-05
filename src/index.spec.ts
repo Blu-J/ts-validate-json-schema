@@ -83,6 +83,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
   } as const;
 
   const matchTestSchema = asSchemaMatcher(testSchema);
+  type TestSchema = typeof matchTestSchema._TYPE;
   const validShape = {
     productId: 0,
     price: 0.4,
@@ -167,6 +168,6 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
   });
 
   test("Will not fail for a valid shape", () => {
-    matchTestSchema.unsafeCast(validShape);
+    const testSchema: TestSchema = matchTestSchema.unsafeCast(validShape);
   });
 });
