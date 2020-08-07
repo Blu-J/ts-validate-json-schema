@@ -3,17 +3,7 @@ import { asSchemaMatcher } from ".";
 test("invalid type will throw", () => {
   expect(() => {
     asSchemaMatcher({ type: "invalid" } as any);
-  }).toThrowErrorMatchingInlineSnapshot(
-    `"Unknown schema: {\\"type\\":\\"invalid\\"}"`
-  );
-});
-
-test("throws invalid type will throw recursive", () => {
-  expect(() => {
-    let x: any = {};
-    x["x"] = x;
-    asSchemaMatcher(x as any);
-  }).toThrowErrorMatchingInlineSnapshot(`"Unknown schema: [object Object]"`);
+  }).toThrowErrorMatchingInlineSnapshot(`"Unknown schema: invalid"`);
 });
 
 test("Validate simple object", () => {
@@ -21,6 +11,72 @@ test("Validate simple object", () => {
     type: "object",
   });
   matcher.unsafeCast({});
+});
+test("null checking", () => {
+  asSchemaMatcher({ type: "null" }).unsafeCast(null);
+});
+
+describe("any of types", () => {
+  const schema = {
+    anyOf: [{ enum: ["a"] }, { enum: ["b"] }],
+  } as const;
+  const matcher = asSchemaMatcher(schema);
+  type Type = typeof matcher._TYPE;
+  test("Testing valid a", () => {
+    const input: Type = "a";
+    matcher.unsafeCast(input);
+  });
+  test("Testing valid b", () => {
+    const input: Type = "b";
+    matcher.unsafeCast(input);
+  });
+  test("Testing invalid", () => {
+    // @ts-expect-error
+    const input: Type = "c";
+
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+  });
+});
+
+describe("all of types", () => {
+  const schema = {
+    allOf: [
+      { type: "object", properties: { a: { enum: ["a"] } }, required: ["a"] },
+      { type: "object", properties: { b: { enum: ["b"] } }, required: ["b"] },
+    ],
+  } as const;
+  const matcher = asSchemaMatcher(schema);
+  type Type = typeof matcher._TYPE;
+  test("Testing valid", () => {
+    const input: Type = { a: "a", b: "b" };
+    matcher.unsafeCast(input);
+  });
+  test("Testing invalid", () => {
+    // @ts-expect-error
+    const input: Type = { a: "a", b: "e" };
+
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+  });
+});
+
+describe("enum types", () => {
+  const testSchema = {
+    type: ["string"],
+    enum: ["red", "amber", "green"],
+  } as const;
+  const testMatcher = asSchemaMatcher(testSchema);
+  type TestMatcher = typeof testMatcher._TYPE;
+  test("valid string", () => {
+    const input: TestMatcher = "red";
+    testMatcher.unsafeCast(input);
+  });
+  test("invalid string", () => {
+    expect(() =>
+      testMatcher.unsafeCast("calculator")
+    ).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: some(literal[red](\\"calculator\\"), literal[amber](\\"calculator\\"), literal[green](\\"calculator\\")) given input \\"calculator\\""`
+    );
+  });
 });
 
 describe("https://json-schema.org/learn/getting-started-step-by-step.html", () => {
@@ -63,6 +119,9 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
         minItems: 1,
         uniqueItems: true,
       },
+      errors: {
+        type: ["null", "string"],
+      },
       dimensions: {
         type: "object",
         properties: {
@@ -79,16 +138,17 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
         required: ["length", "width", "height"],
       },
     },
-    required: ["productId", "productName", "price"],
+    required: ["productId", "productName", "price", "errors"],
   } as const;
 
   const matchTestSchema = asSchemaMatcher(testSchema);
   type TestSchema = typeof matchTestSchema._TYPE;
-  const validShape = {
+  const validShape: TestSchema = {
+    errors: null,
     productId: 0,
     price: 0.4,
     productName: "test",
-    tags: ["5"],
+    tags: ["a"],
     extras: ["string", 4],
     isProduct: false,
     dimensions: {
@@ -102,14 +162,14 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({});
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: shape(@productId(isNumber(undefined)), @productName(string(undefined)), @price(isNumber(undefined))) given input {}"`
+      `"Failed type: shape(hasProperty@productId(), hasProperty@productName(), hasProperty@price(), hasProperty@errors()) given input {}"`
     );
   });
   test("throws for invalid integer", () => {
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, productId: "0" });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: shape(@productId(isNumber(0))) given input {\\"productId\\":\\"0\\",\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"5\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@productId(isNumber(\\"0\\"))) given input {\\"errors\\":null,\\"productId\\":\\"0\\",\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -117,7 +177,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, price: "invalid" });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: shape(@price(isNumber(invalid))) given input {\\"productId\\":0,\\"price\\":\\"invalid\\",\\"productName\\":\\"test\\",\\"tags\\":[\\"5\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@price(isNumber(\\"invalid\\"))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":\\"invalid\\",\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -125,7 +185,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, productName: 0 });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: shape(@productName(string(0))) given input {\\"productId\\":0,\\"price\\":0.4,\\"productName\\":0,\\"tags\\":[\\"5\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@productName(string(0))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":0,\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -133,7 +193,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, tags: [0] });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: partialShape(@tags(arrayOf(@{i}(string(0))))) given input {\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@tags(arrayOf(@{i}(string(0))))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -141,7 +201,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, extras: "invalid" });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: partialShape(@extras(isArray(invalid))) given input {\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"5\\"],\\"extras\\":\\"invalid\\",\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@extras(isArray(\\"invalid\\"))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":\\"invalid\\",\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -149,7 +209,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
     expect(() => {
       matchTestSchema.unsafeCast({ ...validShape, isProduct: "false" });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: partialShape(@isProduct(boolean(false))) given input {\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"5\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":\\"false\\",\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@isProduct(boolean(\\"false\\"))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":\\"false\\",\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -163,7 +223,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
         },
       });
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: partialShape(@dimensions(shape(@length(isNumber(undefined))))) given input {\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"5\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@dimensions(shape(hasProperty@length()))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 

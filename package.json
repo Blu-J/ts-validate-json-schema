@@ -10,7 +10,7 @@
     "lib/"
   ],
   "dependencies": {
-    "ts-matches": ">=3.5.0"
+    "ts-matches": ">=3.5.1"
   },
   "devDependencies": {
     "@types/jest": "^26.0.8",

@@ -1,98 +1,102 @@
 import { default as matches, Validator } from "ts-matches";
 
-const matchSchemaObject = matches.every(
-  matches.shape({
-    type: matches.literal("object"),
-  }),
-  matches.partial({
-    required: matches.arrayOf(matches.string),
-    properties: matches.object,
-  })
-);
-const matchSchemaString = matches.shape({
-  type: matches.literal("string"),
-});
-const matchSchemaInteger = matches.shape({
-  type: matches.some(matches.literal("integer"), matches.literal("number")),
-});
-const matchSchemaBool = matches.shape({
-  type: matches.literal("boolean"),
-});
-const matchSchemaArray = matches.every(
-  matches.shape({
-    type: matches.literal("array"),
-  }),
-  matches.partial({
-    items: matches.shape({
-      type: matches.string,
-    }),
-  })
-);
-type SchemaString = typeof matchSchemaString._TYPE;
-type SchemaInteger = typeof matchSchemaInteger._TYPE;
-type SchemaBool = typeof matchSchemaBool._TYPE;
-type SchemaArray<U extends Schema> = {
-  type: "array";
-} & (U extends unknown
-  ? {}
-  : {
-      items: U;
-    });
-type SchemaObject<T extends { [key: string]: Schema }> = {
-  type: "object";
-  required?: readonly (keyof T & string)[] | (keyof T & string)[];
-  properties?: T;
-};
+const matchStringType = matches.literal("string");
+const matchNumberType = matches.literal("number");
+const matchIntegerType = matches.literal("integer");
+const matchObjectType = matches.literal("object");
+const matchArrayType = matches.literal("array");
+const matchBooleanType = matches.literal("boolean");
+const matchNullType = matches.literal("null");
 
-type AnyInLiteral<T extends any[] | readonly any[]> = T[number];
-type SchemaTypeForObject<A> = A extends SchemaObject<infer B>
-  ? A["required"] extends infer C
-    ? C extends readonly (keyof B & string)[] | (keyof B & string)[]
-      ? {
-          [K in Exclude<keyof B, AnyInLiteral<C>>]?: SchemaType<B[K]>;
-        } &
-          {
-            [K in keyof B & AnyInLiteral<C>]: SchemaType<B[K]>;
-          }
-      : never
-    : { [K in keyof B]?: SchemaType<B[K]> }
+type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I
+) => void
+  ? I
   : never;
 
-type Schema =
-  | SchemaString
-  | SchemaInteger
-  | SchemaObject<any>
-  | SchemaBool
-  | SchemaArray<any>;
+type TypeString = typeof matchStringType._TYPE;
+type TypeNumber = typeof matchNumberType._TYPE;
+type TypeInteger = typeof matchIntegerType._TYPE;
+type TypeObject = typeof matchObjectType._TYPE;
+type TypeArray = typeof matchArrayType._TYPE;
+type TypeBoolean = typeof matchBooleanType._TYPE;
+type TypeNull = typeof matchNullType._TYPE;
 
-/**
- * This is a JSON schema duck shaped, so we care about what we are looking for, and
- * won't throw for extras added
- */
-export type SchemaDuck = { [key: string]: unknown } & Schema;
+const matchTypeShape = matches.shape({ type: matches.any });
+const matchItems = matches.shape({ items: matches.object });
+const matchPrortiesShape = matches.shape({
+  properties: matches.object,
+});
+const matchRequireds = matches.shape({
+  required: matches.arrayOf(matches.string),
+});
+const matchEnum = matches.shape({
+  enum: matches.arrayOf(
+    matches.some(matches.string, matches.number, matches.boolean, matches.nill)
+  ),
+});
+const matchAnyOf = matches.shape({
+  anyOf: matches.arrayOf(matches.object),
+});
+const matchAllOf = matches.shape({
+  allOf: matches.arrayOf(matches.object),
+});
+
+type ItemType<T> = T extends { items: infer U }
+  ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
+  : unknown;
+// prettier-ignore
+type PropertiesType<T> = 
+  T extends { properties: infer U; required: infer V } ? (
+    V extends (Array<keyof U & string> | ReadonlyArray<keyof U & string>) ? 
+    (
+      & {
+        [K in Exclude<keyof U, AnyInLiteral<V>>]?: FromSchema<U[K]>;
+      }
+      & {
+        [K in keyof U & AnyInLiteral<V>]: FromSchema<U[K]>;
+      }
+    ):
+    never
+  ):
+  T extends { properties: infer U } ? { [K in keyof U]?: FromSchema<U[K]>; }
+  : unknown;
+type EnumType<T> = T extends { enum: infer U } ? AnyInLiteral<U> : unknown;
+// prettier-ignore
+type FromTypeRaw<T> =
+  T extends (TypeInteger | TypeNumber) ? number :
+  T extends TypeString ? string :
+  T extends TypeBoolean ? boolean :
+  T extends TypeNull ? null :
+  T extends TypeObject ? object :
+  T extends TypeArray ? Array<unknown> :
+  never
+
+type AnyOfType<T> = T extends { anyOf: infer U }
+  ? AnyInLiteral<{ [K in keyof U]: FromSchema<U[K]> }>
+  : unknown;
+type AllOfType<T> = T extends { allOf: infer U }
+  ? UnionToIntersection<AnyInLiteral<{ [K in keyof U]: FromSchema<U[K]> }>>
+  : unknown;
+
+// prettier-ignore
+type FromTypeProp<T> =
+  T extends Array<infer U> | ReadonlyArray<infer U> ? FromTypeRaw<U> :
+  FromTypeRaw<T>
+type FromType<T> = T extends { type: infer Type }
+  ? FromTypeProp<Type>
+  : unknown;
 
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type SchemaType<T extends SchemaDuck> = T extends SchemaObject<any>
-  ? SchemaTypeForObject<T>
-  : T extends SchemaInteger
-  ? number
-  : T extends SchemaString
-  ? string
-  : T extends SchemaBool
-  ? boolean
-  : T extends SchemaArray<infer U>
-  ? Array<SchemaType<U>>
-  : never;
-
-function tryJson(x: unknown) {
-  try {
-    return JSON.stringify(x);
-  } catch (e) {
-    return "" + x;
-  }
-}
+export type FromSchema<T> = FromType<T> &
+  PropertiesType<T> &
+  ItemType<T> &
+  EnumType<T> &
+  AnyOfType<T> &
+  AllOfType<T>;
 
 /**
  * This is the main function. Use this to turn a json-schema into a validator. Is
@@ -100,39 +104,93 @@ function tryJson(x: unknown) {
  * types out for typescript.
  * @param schema So this is a json schema that we want to turn into a validator
  */
-export function asSchemaMatcher<T extends SchemaDuck>(
-  schema: T
-): Validator<SchemaType<T>> {
-  const matcher = matches<Validator<any>>(schema)
-    .when(matchSchemaInteger, (_) => matches.number)
-    .when(matchSchemaObject, (schemaObject) => {
-      const properties = schemaObject.properties || {};
-      const propertyKeys = Object.keys(properties);
-      const required = schemaObject.required || [];
-      let requireds: { [key: string]: Validator<unknown> } = {};
-      let partials: { [key: string]: Validator<unknown> } = {};
+export function asSchemaMatcher<T>(schema: T): Validator<FromSchema<T>> {
+  return matches.every(
+    matchTypeFrom(schema),
+    matchRequiredFrom(schema),
+    matchPropertiesFrom(schema),
+    matchItemsFrom(schema),
+    matchEnumFrom(schema),
+    matchAnyOfFrom(schema),
+    matchAllOfFrom(schema)
+  );
+}
 
-      for (const key of propertyKeys) {
-        const matcher = asSchemaMatcher((properties as any)[key]);
-        if (required.indexOf(key) !== -1) {
-          requireds[key] = matcher;
-        } else {
-          partials[key] = matcher;
-        }
-      }
+function matchItemsFrom(schema: unknown): Validator<any> {
+  if (!matchItems.test(schema)) {
+    return matches.any;
+  }
+  return matches.arrayOf(asSchemaMatcher(schema.items));
+}
 
-      return matches.every(matches.shape(requireds), matches.partial(partials));
-    })
-    .when(matchSchemaString, (_) => matches.string)
-    .when(matchSchemaBool, (_) => matches.boolean)
-    .when(matchSchemaArray, (a) => {
-      if (a.items) {
-        return matches.arrayOf(asSchemaMatcher(a.items as Schema));
-      }
+function matchRequiredFrom(schema: unknown): Validator<any> {
+  if (!matchRequireds.test(schema)) {
+    return matches.any;
+  }
+  let requireds: { [key: string]: Validator<unknown> } = {};
+
+  for (const key of schema.required) {
+    requireds[key] = matches.any;
+  }
+
+  return matches.shape(requireds);
+}
+
+function matchAnyOfFrom(schema: unknown): Validator<any> {
+  if (!matchAnyOf.test(schema)) {
+    return matches.any;
+  }
+  return matches.some(...schema.anyOf.map(asSchemaMatcher));
+}
+
+function matchAllOfFrom(schema: unknown): Validator<any> {
+  if (!matchAllOf.test(schema)) {
+    return matches.any;
+  }
+  return matches.every(...schema.allOf.map(asSchemaMatcher));
+}
+
+function matchPropertiesFrom(schema: unknown): Validator<any> {
+  if (!matchPrortiesShape.test(schema)) {
+    return matches.any;
+  }
+  const properties = schema.properties;
+  const propertyKeys = Object.keys(properties);
+  let shape: { [key: string]: Validator<unknown> } = {};
+
+  for (const key of propertyKeys) {
+    const matcher = asSchemaMatcher((properties as any)[key]);
+    shape[key] = matcher;
+  }
+  return matches.partial(shape);
+}
+
+function matchEnumFrom(schema: unknown): Validator<any> {
+  if (!matchEnum.test(schema)) {
+    return matches.any;
+  }
+  return matches.some(...schema.enum.map((x) => matches.literal(x)));
+}
+
+function matchTypeFrom(schema: unknown): Validator<any> {
+  if (!matchTypeShape.test(schema)) {
+    return matches.any;
+  }
+  const type = schema.type;
+  if (matches.arrayOf(matches.any).test(type)) {
+    return matches.some(...type.map(matchTypeFrom));
+  }
+  return matches<Validator<any>>(type)
+    .when(matchIntegerType, () => matches.number)
+    .when(matchNumberType, () => matches.number)
+    .when(matchObjectType, () => matches.object)
+    .when(matchStringType, () => matches.string)
+    .when(matchBooleanType, () => matches.boolean)
+    .when(matchNullType, () => matches.nill)
+    .when(matchArrayType, (a) => {
       return matches.arrayOf(matches.any);
     })
     .defaultToLazy(() => {
-      throw new Error(`Unknown schema: ${tryJson(schema)}`);
-    }) as any;
-  return matcher;
+      throw new Error(`Unknown schema: ${type}`);
+    });
 }
