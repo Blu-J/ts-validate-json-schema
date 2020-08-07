@@ -23,6 +23,26 @@ test("Validate simple object", () => {
   matcher.unsafeCast({});
 });
 
+describe("enum types", () => {
+  const testSchema = {
+    type: ["string"],
+    enum: ["red", "amber", "green"],
+  } as const;
+  const testMatcher = asSchemaMatcher(testSchema);
+  type TestMatcher = typeof testMatcher._TYPE;
+  test("valid string", () => {
+    const input: TestMatcher = "red";
+    testMatcher.unsafeCast(input);
+  });
+  test("invalid string", () => {
+    expect(() =>
+      testMatcher.unsafeCast("calculator")
+    ).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: some(literal[red](\\"calculator\\"), literal[amber](\\"calculator\\"), literal[green](\\"calculator\\")) given input \\"calculator\\""`
+    );
+  });
+});
+
 describe("https://json-schema.org/learn/getting-started-step-by-step.html", () => {
   const testSchema = {
     $schema: "http://json-schema.org/draft-07/schema#",

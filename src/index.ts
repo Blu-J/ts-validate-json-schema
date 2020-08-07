@@ -8,7 +8,7 @@ const matchArrayType = matches.literal("array");
 const matchBooleanType = matches.literal("boolean");
 const matchNullType = matches.literal("null");
 
-type AnyInLiteral<T extends any[] | readonly any[]> = T[number];
+type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
 
 type TypeString = typeof matchStringType._TYPE;
 type TypeNumber = typeof matchNumberType._TYPE;
@@ -28,24 +28,24 @@ type SchemaTypes =
   | TypeNull
   | Array<SchemaTypes>
   | ReadonlyArray<SchemaTypes>;
-type Schema = {
-  type: SchemaTypes;
-};
 
-// const matchType = matches.some(matchStringType, matchNumberType, matchIntegerType, matchObjectType, matchArrayType, matchBooleanType, matchNullType);
 const matchTypeShape = matches.shape({ type: matches.any });
-/**
- * This is a JSON schema duck shaped, so we care about what we are looking for, and
- * won't throw for extras added
- */
-export type SchemaDuck = { [key: string]: unknown } & Schema;
 const matchItems = matches.shape({ items: matches.object });
-type ItemType<T> = T extends { items: infer U }
-  ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
-  : unknown;
 const matchPrortiesShape = matches.shape({
   properties: matches.object,
 });
+const matchRequireds = matches.shape({
+  required: matches.arrayOf(matches.string),
+});
+const matchEnum = matches.shape({
+  enum: matches.arrayOf(
+    matches.some(matches.string, matches.number, matches.boolean, matches.nill)
+  ),
+});
+
+type ItemType<T> = T extends { items: infer U }
+  ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
+  : unknown;
 // prettier-ignore
 type PropertiesType<T> = 
   T extends { properties: infer U; required: infer V } ? (
@@ -62,9 +62,7 @@ type PropertiesType<T> =
   ):
   T extends { properties: infer U } ? { [K in keyof U]?: FromSchema<U[K]>; }
   : unknown;
-const matchRequireds = matches.shape({
-  required: matches.arrayOf(matches.string),
-});
+type EnumType<T> = T extends { enum: infer U } ? AnyInLiteral<U> : unknown;
 // prettier-ignore
 type FromTypeRaw<T> =
   T extends (TypeInteger | TypeNumber) ? number :
@@ -75,17 +73,26 @@ type FromTypeRaw<T> =
   T extends TypeArray ? Array<unknown> :
   never
 // prettier-ignore
-type FromType<T> =
+type FromTypeProp<T> =
   T extends Array<infer U> | ReadonlyArray<infer U> ? FromTypeRaw<U> :
   FromTypeRaw<T>
+type FromType<T> = T extends { type: infer Type }
+  ? FromTypeProp<Type>
+  : unknown;
 
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type FromSchema<T> = T extends { type: infer Type }
-  ? FromType<Type> & PropertiesType<T> & ItemType<T>
-  : never;
-
+export type FromSchema<T> = FromType<T> &
+  PropertiesType<T> &
+  ItemType<T> &
+  EnumType<T>;
+type TestA = {
+  enum: ["red"];
+};
+type Test = FromSchema<{
+  enum: ["red"];
+}>;
 function tryJson(x: unknown) {
   try {
     return JSON.stringify(x);
@@ -108,7 +115,8 @@ export function asSchemaMatcher<T>(schema: T): Validator<FromSchema<T>> {
     matchTypeFrom(schema.type),
     matchRequiredFrom(schema),
     matchPropertiesFrom(schema),
-    matchItemsFrom(schema)
+    matchItemsFrom(schema),
+    matchEnumFrom(schema)
   );
 }
 
@@ -145,6 +153,13 @@ function matchPropertiesFrom(schema: unknown): Validator<any> {
     shape[key] = matcher;
   }
   return matches.partial(shape);
+}
+
+function matchEnumFrom(schema: unknown): Validator<any> {
+  if (!matchEnum.test(schema)) {
+    return matches.any;
+  }
+  return matches.some(...schema.enum.map((x) => matches.literal(x)));
 }
 
 function matchTypeFrom(type: unknown): Validator<any> {
