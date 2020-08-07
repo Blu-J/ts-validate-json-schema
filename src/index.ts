@@ -1,90 +1,70 @@
 import { default as matches, Validator } from "ts-matches";
 
-const matchSchemaObject = matches.every(
-  matches.shape({
-    type: matches.literal("object"),
-  }),
-  matches.partial({
-    required: matches.arrayOf(matches.string),
-    properties: matches.object,
-  })
-);
-const matchSchemaString = matches.shape({
-  type: matches.literal("string"),
-});
-const matchSchemaInteger = matches.shape({
-  type: matches.some(matches.literal("integer"), matches.literal("number")),
-});
-const matchSchemaBool = matches.shape({
-  type: matches.literal("boolean"),
-});
-const matchSchemaArray = matches.every(
-  matches.shape({
-    type: matches.literal("array"),
-  }),
-  matches.partial({
-    items: matches.shape({
-      type: matches.string,
-    }),
-  })
-);
-type SchemaString = typeof matchSchemaString._TYPE;
-type SchemaInteger = typeof matchSchemaInteger._TYPE;
-type SchemaBool = typeof matchSchemaBool._TYPE;
-type SchemaArray<U extends Schema> = {
-  type: "array";
-} & (U extends unknown
-  ? {}
-  : {
-      items: U;
-    });
-type SchemaObject<T extends { [key: string]: Schema }> = {
-  type: "object";
-  required?: readonly (keyof T & string)[] | (keyof T & string)[];
-  properties?: T;
-};
+const matchStringType = matches.literal("string")
+const matchNumberType = matches.literal("number")
+const matchIntegerType = matches.literal("integer")
+const matchObjectType = matches.literal("object")
+const matchArrayType = matches.literal("array")
+const matchBooleanType = matches.literal("boolean")
+const matchNullType = matches.literal("null")
 
-type AnyInLiteral<T extends any[] | readonly any[]> = T[number];
-type SchemaTypeForObject<A> = A extends SchemaObject<infer B>
-  ? A["required"] extends infer C
-    ? C extends readonly (keyof B & string)[] | (keyof B & string)[]
-      ? {
-          [K in Exclude<keyof B, AnyInLiteral<C>>]?: SchemaType<B[K]>;
-        } &
-          {
-            [K in keyof B & AnyInLiteral<C>]: SchemaType<B[K]>;
-          }
-      : never
-    : { [K in keyof B]?: SchemaType<B[K]> }
-  : never;
 
-type Schema =
-  | SchemaString
-  | SchemaInteger
-  | SchemaObject<any>
-  | SchemaBool
-  | SchemaArray<any>;
+type TypeString = typeof matchStringType._TYPE
+type TypeNumber = typeof matchNumberType._TYPE
+type TypeInteger = typeof matchIntegerType._TYPE
+type TypeObject = typeof matchObjectType._TYPE
+type TypeArray = typeof matchArrayType._TYPE
+type TypeBoolean = typeof matchBooleanType._TYPE
+type TypeNull = typeof matchNullType._TYPE
+
+type SchemaTypes =
+  | TypeString
+  | TypeNumber
+  | TypeInteger
+  | TypeObject
+  | TypeArray
+  | TypeBoolean
+  | TypeNull
+  | Array<SchemaTypes>
+  | ReadonlyArray<SchemaTypes>
+type Schema = {
+  type: SchemaTypes
+}
 
 /**
  * This is a JSON schema duck shaped, so we care about what we are looking for, and
  * won't throw for extras added
  */
 export type SchemaDuck = { [key: string]: unknown } & Schema;
+const matchItems = matches.shape({items: matches.object})
+type ArrayType<T> = T extends { items: infer U } ? FromType<U> : unknown
+const matchPrortiesShape = matches.shape({
+  properties: matches.object
+})
+type PropertiesType<T> =
+  T extends { properties: infer U } ? { [Key in (keyof U) & string]: FromType<U[Key]> } : unknown
+const matchRequireds = matches.shape({
+  requireds: matches.arrayOf(matches.string)
+})
+type RequiredTypes<T> = T extends { required: ReadonlyArray<infer U> | Array<infer U> } ? (
+  U extends string ? { [Key in U]: unknown } : never
+) : unknown
 
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type SchemaType<T extends SchemaDuck> = T extends SchemaObject<any>
-  ? SchemaTypeForObject<T>
-  : T extends SchemaInteger
-  ? number
-  : T extends SchemaString
-  ? string
-  : T extends SchemaBool
-  ? boolean
-  : T extends SchemaArray<infer U>
-  ? Array<SchemaType<U>>
-  : never;
+// pretier-ignore
+export type FromType<T> =
+  T extends { type: infer Type } ? (
+    Type extends TypeInteger | TypeNumber ? number :
+    Type extends TypeString ? string :
+    Type extends TypeBoolean ? boolean :
+    Type extends TypeNull ? null :
+    Type extends TypeObject ? (object & PropertiesType<T> & RequiredTypes<T>) :
+    Type extends TypeArray ? Array<ArrayType<T>> :
+    never
+  ) : never
+
 
 function tryJson(x: unknown) {
   try {
@@ -102,13 +82,13 @@ function tryJson(x: unknown) {
  */
 export function asSchemaMatcher<T extends SchemaDuck>(
   schema: T
-): Validator<SchemaType<T>> {
-  const matcher = matches<Validator<any>>(schema)
-    .when(matchSchemaInteger, (_) => matches.number)
-    .when(matchSchemaObject, (schemaObject) => {
-      const properties = schemaObject.properties || {};
+): Validator<FromType<T>> {
+  const matcher = matches<Validator<any>>(schema.type)
+    .when(matchIntegerType, (_) => matches.number)
+    .when(matchObjectType, (schemaObject) => {
+      const properties = matches<object>(schemaObject).when(matchPrortiesShape, ({properties}) => properties).defaultToLazy(() => ({}))
       const propertyKeys = Object.keys(properties);
-      const required = schemaObject.required || [];
+      const required = matches<string[]>(schemaObject).when(matchRequireds, ({requireds}) => requireds).defaultToLazy(() => [])
       let requireds: { [key: string]: Validator<unknown> } = {};
       let partials: { [key: string]: Validator<unknown> } = {};
 
@@ -123,10 +103,11 @@ export function asSchemaMatcher<T extends SchemaDuck>(
 
       return matches.every(matches.shape(requireds), matches.partial(partials));
     })
-    .when(matchSchemaString, (_) => matches.string)
-    .when(matchSchemaBool, (_) => matches.boolean)
-    .when(matchSchemaArray, (a) => {
-      if (a.items) {
+    .when(matchStringType, (_) => matches.string)
+    .when(matchBooleanType, (_) => matches.boolean)
+    .when(matchNullType, (_) => matches.nill)
+    .when(matchArrayType, (a) => {
+      if (matchItems.test(a)) {
         return matches.arrayOf(asSchemaMatcher(a.items as Schema));
       }
       return matches.arrayOf(matches.any);
