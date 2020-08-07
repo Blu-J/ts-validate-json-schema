@@ -7,7 +7,7 @@ The problem that we want solved is that we have generated out some JSON-Schema, 
 // Here we have brought in the test schema. This schema was cloned off 
 // https://json-schema.org/learn/getting-started-step-by-step.html
 // except the reference. 
-// Notice: There is the `as const`. I believe this may not be needed for importing via json
+// Notice: There is the `as const`. Currenlty one cannot import from csv with the const
 const testSchema = {
     $schema: "http://json-schema.org/draft-07/schema#",
     $id: "http://example.com/product.schema.json",
@@ -97,7 +97,9 @@ const testSchema = {
 ## Features 
 
 - [x] Simple Type Validation
-- [ ] Check we can use import for .json
+- [x] Enum Type Validation
+- [x] allOf/ anyOf type
+- [x] Type allowed to be array of types
 - [ ] References to other schemas
 - [ ] Limit Validations (min/ max)
 
