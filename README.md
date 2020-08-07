@@ -1,4 +1,5 @@
 # ts-validate-json-schema
+[![Coverage Status](https://coveralls.io/repos/github/Blu-J/ts-validate-json-schema/badge.svg?branch=master)](https://coveralls.io/github/Blu-J/ts-validate-json-schema?branch=master)
 The problem that we want solved is that we have generated out some JSON-Schema, but we would like the types in typescript. As well, we would like to validate these types are valid (throw/ case switch).
 
 ## Example Usuage
