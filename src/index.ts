@@ -1,21 +1,22 @@
 import { default as matches, Validator } from "ts-matches";
 
-const matchStringType = matches.literal("string")
-const matchNumberType = matches.literal("number")
-const matchIntegerType = matches.literal("integer")
-const matchObjectType = matches.literal("object")
-const matchArrayType = matches.literal("array")
-const matchBooleanType = matches.literal("boolean")
-const matchNullType = matches.literal("null")
+const matchStringType = matches.literal("string");
+const matchNumberType = matches.literal("number");
+const matchIntegerType = matches.literal("integer");
+const matchObjectType = matches.literal("object");
+const matchArrayType = matches.literal("array");
+const matchBooleanType = matches.literal("boolean");
+const matchNullType = matches.literal("null");
 
+type AnyInLiteral<T extends any[] | readonly any[]> = T[number];
 
-type TypeString = typeof matchStringType._TYPE
-type TypeNumber = typeof matchNumberType._TYPE
-type TypeInteger = typeof matchIntegerType._TYPE
-type TypeObject = typeof matchObjectType._TYPE
-type TypeArray = typeof matchArrayType._TYPE
-type TypeBoolean = typeof matchBooleanType._TYPE
-type TypeNull = typeof matchNullType._TYPE
+type TypeString = typeof matchStringType._TYPE;
+type TypeNumber = typeof matchNumberType._TYPE;
+type TypeInteger = typeof matchIntegerType._TYPE;
+type TypeObject = typeof matchObjectType._TYPE;
+type TypeArray = typeof matchArrayType._TYPE;
+type TypeBoolean = typeof matchBooleanType._TYPE;
+type TypeNull = typeof matchNullType._TYPE;
 
 type SchemaTypes =
   | TypeString
@@ -26,45 +27,64 @@ type SchemaTypes =
   | TypeBoolean
   | TypeNull
   | Array<SchemaTypes>
-  | ReadonlyArray<SchemaTypes>
+  | ReadonlyArray<SchemaTypes>;
 type Schema = {
-  type: SchemaTypes
-}
+  type: SchemaTypes;
+};
 
+// const matchType = matches.some(matchStringType, matchNumberType, matchIntegerType, matchObjectType, matchArrayType, matchBooleanType, matchNullType);
+const matchTypeShape = matches.shape({ type: matches.any });
 /**
  * This is a JSON schema duck shaped, so we care about what we are looking for, and
  * won't throw for extras added
  */
 export type SchemaDuck = { [key: string]: unknown } & Schema;
-const matchItems = matches.shape({items: matches.object})
-type ArrayType<T> = T extends { items: infer U } ? FromType<U> : unknown
+const matchItems = matches.shape({ items: matches.object });
+type ItemType<T> = T extends { items: infer U }
+  ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
+  : unknown;
 const matchPrortiesShape = matches.shape({
-  properties: matches.object
-})
-type PropertiesType<T> =
-  T extends { properties: infer U } ? { [Key in (keyof U) & string]: FromType<U[Key]> } : unknown
+  properties: matches.object,
+});
+// prettier-ignore
+type PropertiesType<T> = 
+  T extends { properties: infer U; required: infer V } ? (
+    V extends (Array<keyof U & string> | ReadonlyArray<keyof U & string>) ? 
+    (
+      & {
+        [K in Exclude<keyof U, AnyInLiteral<V>>]?: FromSchema<U[K]>;
+      }
+      & {
+        [K in keyof U & AnyInLiteral<V>]: FromSchema<U[K]>;
+      }
+    ):
+    never
+  ):
+  T extends { properties: infer U } ? { [K in keyof U]?: FromSchema<U[K]>; }
+  : unknown;
 const matchRequireds = matches.shape({
-  requireds: matches.arrayOf(matches.string)
-})
-type RequiredTypes<T> = T extends { required: ReadonlyArray<infer U> | Array<infer U> } ? (
-  U extends string ? { [Key in U]: unknown } : never
-) : unknown
+  required: matches.arrayOf(matches.string),
+});
+// prettier-ignore
+type FromTypeRaw<T> =
+  T extends (TypeInteger | TypeNumber) ? number :
+  T extends TypeString ? string :
+  T extends TypeBoolean ? boolean :
+  T extends TypeNull ? null :
+  T extends TypeObject ? object :
+  T extends TypeArray ? Array<unknown> :
+  never
+// prettier-ignore
+type FromType<T> =
+  T extends Array<infer U> | ReadonlyArray<infer U> ? FromTypeRaw<U> :
+  FromTypeRaw<T>
 
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-// pretier-ignore
-export type FromType<T> =
-  T extends { type: infer Type } ? (
-    Type extends TypeInteger | TypeNumber ? number :
-    Type extends TypeString ? string :
-    Type extends TypeBoolean ? boolean :
-    Type extends TypeNull ? null :
-    Type extends TypeObject ? (object & PropertiesType<T> & RequiredTypes<T>) :
-    Type extends TypeArray ? Array<ArrayType<T>> :
-    never
-  ) : never
-
+export type FromSchema<T> = T extends { type: infer Type }
+  ? FromType<Type> & PropertiesType<T> & ItemType<T>
+  : never;
 
 function tryJson(x: unknown) {
   try {
@@ -80,40 +100,68 @@ function tryJson(x: unknown) {
  * types out for typescript.
  * @param schema So this is a json schema that we want to turn into a validator
  */
-export function asSchemaMatcher<T extends SchemaDuck>(
-  schema: T
-): Validator<FromType<T>> {
-  const matcher = matches<Validator<any>>(schema.type)
-    .when(matchIntegerType, (_) => matches.number)
-    .when(matchObjectType, (schemaObject) => {
-      const properties = matches<object>(schemaObject).when(matchPrortiesShape, ({properties}) => properties).defaultToLazy(() => ({}))
-      const propertyKeys = Object.keys(properties);
-      const required = matches<string[]>(schemaObject).when(matchRequireds, ({requireds}) => requireds).defaultToLazy(() => [])
-      let requireds: { [key: string]: Validator<unknown> } = {};
-      let partials: { [key: string]: Validator<unknown> } = {};
+export function asSchemaMatcher<T>(schema: T): Validator<FromSchema<T>> {
+  if (!matchTypeShape.test(schema)) {
+    throw new Error(`Unknown schema shape: ${tryJson(schema)}`);
+  }
+  return matches.every(
+    matchTypeFrom(schema.type),
+    matchRequiredFrom(schema),
+    matchPropertiesFrom(schema),
+    matchItemsFrom(schema)
+  );
+}
 
-      for (const key of propertyKeys) {
-        const matcher = asSchemaMatcher((properties as any)[key]);
-        if (required.indexOf(key) !== -1) {
-          requireds[key] = matcher;
-        } else {
-          partials[key] = matcher;
-        }
-      }
+function matchItemsFrom(schema: unknown): Validator<any> {
+  if (!matchItems.test(schema)) {
+    return matches.any;
+  }
+  return matches.arrayOf(asSchemaMatcher(schema.items));
+}
 
-      return matches.every(matches.shape(requireds), matches.partial(partials));
-    })
-    .when(matchStringType, (_) => matches.string)
-    .when(matchBooleanType, (_) => matches.boolean)
-    .when(matchNullType, (_) => matches.nill)
+function matchRequiredFrom(schema: unknown): Validator<any> {
+  if (!matchRequireds.test(schema)) {
+    return matches.any;
+  }
+  let requireds: { [key: string]: Validator<unknown> } = {};
+
+  for (const key of schema.required) {
+    requireds[key] = matches.any;
+  }
+
+  return matches.shape(requireds);
+}
+
+function matchPropertiesFrom(schema: unknown): Validator<any> {
+  if (!matchPrortiesShape.test(schema)) {
+    return matches.any;
+  }
+  const properties = schema.properties;
+  const propertyKeys = Object.keys(properties);
+  let shape: { [key: string]: Validator<unknown> } = {};
+
+  for (const key of propertyKeys) {
+    const matcher = asSchemaMatcher((properties as any)[key]);
+    shape[key] = matcher;
+  }
+  return matches.partial(shape);
+}
+
+function matchTypeFrom(type: unknown): Validator<any> {
+  if (matches.arrayOf(matches.any).test(type)) {
+    return matches.some(...type.map(matchTypeFrom));
+  }
+  return matches<Validator<any>>(type)
+    .when(matchIntegerType, () => matches.number)
+    .when(matchNumberType, () => matches.number)
+    .when(matchObjectType, () => matches.object)
+    .when(matchStringType, () => matches.string)
+    .when(matchBooleanType, () => matches.boolean)
+    .when(matchNullType, () => matches.nill)
     .when(matchArrayType, (a) => {
-      if (matchItems.test(a)) {
-        return matches.arrayOf(asSchemaMatcher(a.items as Schema));
-      }
       return matches.arrayOf(matches.any);
     })
     .defaultToLazy(() => {
-      throw new Error(`Unknown schema: ${tryJson(schema)}`);
-    }) as any;
-  return matcher;
+      throw new Error(`Unknown schema: ${tryJson(type)}`);
+    });
 }
