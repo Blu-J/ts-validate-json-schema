@@ -27,7 +27,8 @@
     "test": "jest --coverage",
     "lint": "tslint --project tsconfig.json --format stylish",
     "pretty-check": "prettier --check src",
-    "fmt": "prettier --write src"
+    "fmt": "prettier --write src",
+    "coveralls": "jest --coverage"
   },
   "jest": {
     "transform": {
