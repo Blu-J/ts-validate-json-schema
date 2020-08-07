@@ -3,17 +3,7 @@ import { asSchemaMatcher } from ".";
 test("invalid type will throw", () => {
   expect(() => {
     asSchemaMatcher({ type: "invalid" } as any);
-  }).toThrowErrorMatchingInlineSnapshot(`"Unknown schema: \\"invalid\\""`);
-});
-
-test("throws invalid type will throw recursive", () => {
-  expect(() => {
-    let x: any = {};
-    x["x"] = x;
-    asSchemaMatcher(x as any);
-  }).toThrowErrorMatchingInlineSnapshot(
-    `"Unknown schema shape: [object Object]"`
-  );
+  }).toThrowErrorMatchingInlineSnapshot(`"Unknown schema: invalid"`);
 });
 
 test("Validate simple object", () => {
@@ -21,6 +11,31 @@ test("Validate simple object", () => {
     type: "object",
   });
   matcher.unsafeCast({});
+});
+test("null checking", () => {
+  asSchemaMatcher({ type: "null" }).unsafeCast(null);
+});
+
+describe("any of types", () => {
+  const schema = {
+    anyOf: [{ enum: ["a"] }, { enum: ["b"] }],
+  } as const;
+  const matcher = asSchemaMatcher(schema);
+  type Type = typeof matcher._TYPE;
+  test("Testing valid a", () => {
+    const input: Type = "a";
+    matcher.unsafeCast(input);
+  });
+  test("Testing valid b", () => {
+    const input: Type = "b";
+    matcher.unsafeCast(input);
+  });
+  test("Testing invalid", () => {
+    // @ts-expect-error
+    const input: Type = "c";
+
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+  });
 });
 
 describe("enum types", () => {

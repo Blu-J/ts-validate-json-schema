@@ -9,6 +9,8 @@ const matchBooleanType = matches.literal("boolean");
 const matchNullType = matches.literal("null");
 
 type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
+type UnionToIntersection<U> = 
+  (U extends any ? (k: U)=>void : never) extends ((k: infer I)=>void) ? I : never
 
 type TypeString = typeof matchStringType._TYPE;
 type TypeNumber = typeof matchNumberType._TYPE;
@@ -42,6 +44,9 @@ const matchEnum = matches.shape({
     matches.some(matches.string, matches.number, matches.boolean, matches.nill)
   ),
 });
+const matchAnyOf = matches.shape({
+  anyOf: matches.arrayOf(matches.object)
+})
 
 type ItemType<T> = T extends { items: infer U }
   ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
@@ -72,6 +77,9 @@ type FromTypeRaw<T> =
   T extends TypeObject ? object :
   T extends TypeArray ? Array<unknown> :
   never
+
+type AnyOfType<T> = T extends {anyOf: infer U} ? AnyInLiteral<{[K in keyof U]: FromSchema<U[K]>}> : unknown
+
 // prettier-ignore
 type FromTypeProp<T> =
   T extends Array<infer U> | ReadonlyArray<infer U> ? FromTypeRaw<U> :
@@ -83,23 +91,11 @@ type FromType<T> = T extends { type: infer Type }
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type FromSchema<T> = FromType<T> &
+export type FromSchema<T> = 
+  FromType<T> &
   PropertiesType<T> &
   ItemType<T> &
-  EnumType<T>;
-type TestA = {
-  enum: ["red"];
-};
-type Test = FromSchema<{
-  enum: ["red"];
-}>;
-function tryJson(x: unknown) {
-  try {
-    return JSON.stringify(x);
-  } catch (e) {
-    return "" + x;
-  }
-}
+  EnumType<T> & AnyOfType<T>;
 
 /**
  * This is the main function. Use this to turn a json-schema into a validator. Is
@@ -108,15 +104,13 @@ function tryJson(x: unknown) {
  * @param schema So this is a json schema that we want to turn into a validator
  */
 export function asSchemaMatcher<T>(schema: T): Validator<FromSchema<T>> {
-  if (!matchTypeShape.test(schema)) {
-    throw new Error(`Unknown schema shape: ${tryJson(schema)}`);
-  }
   return matches.every(
-    matchTypeFrom(schema.type),
+    matchTypeFrom(schema),
     matchRequiredFrom(schema),
     matchPropertiesFrom(schema),
     matchItemsFrom(schema),
-    matchEnumFrom(schema)
+    matchEnumFrom(schema),
+    matchAnyOfFrom(schema)
   );
 }
 
@@ -138,6 +132,13 @@ function matchRequiredFrom(schema: unknown): Validator<any> {
   }
 
   return matches.shape(requireds);
+}
+
+function matchAnyOfFrom(schema: unknown): Validator<any> {
+  if (!matchAnyOf.test(schema)) {
+    return matches.any;
+  }
+  return matches.some(...schema.anyOf.map(asSchemaMatcher))
 }
 
 function matchPropertiesFrom(schema: unknown): Validator<any> {
@@ -162,7 +163,11 @@ function matchEnumFrom(schema: unknown): Validator<any> {
   return matches.some(...schema.enum.map((x) => matches.literal(x)));
 }
 
-function matchTypeFrom(type: unknown): Validator<any> {
+function matchTypeFrom(schema: unknown): Validator<any> {  
+  if (!matchTypeShape.test(schema)) {
+    return matches.any
+  }
+  const type = schema.type;
   if (matches.arrayOf(matches.any).test(type)) {
     return matches.some(...type.map(matchTypeFrom));
   }
@@ -177,6 +182,6 @@ function matchTypeFrom(type: unknown): Validator<any> {
       return matches.arrayOf(matches.any);
     })
     .defaultToLazy(() => {
-      throw new Error(`Unknown schema: ${tryJson(type)}`);
+      throw new Error(`Unknown schema: ${type}`);
     });
 }
