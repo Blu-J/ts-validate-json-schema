@@ -84,11 +84,11 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
 
   const matchTestSchema = asSchemaMatcher(testSchema);
   type TestSchema = typeof matchTestSchema._TYPE;
-  const validShape = {
+  const validShape: TestSchema = {
     productId: 0,
     price: 0.4,
     productName: "test",
-    tags: ["5"],
+    tags: [""],
     extras: ["string", 4],
     isProduct: false,
     dimensions: {
