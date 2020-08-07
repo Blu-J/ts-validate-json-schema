@@ -38,6 +38,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm install
+      - run: npm run coverage
       - name: "Code coverage"
         uses: mattallty/jest-github-action@v1
         env:
