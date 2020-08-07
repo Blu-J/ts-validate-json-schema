@@ -38,6 +38,27 @@ describe("any of types", () => {
   });
 });
 
+describe("all of types", () => {
+  const schema = {
+    allOf: [
+      { type: "object", properties: { a: { enum: ["a"] } }, required: ["a"] },
+      { type: "object", properties: { b: { enum: ["b"] } }, required: ["b"] },
+    ],
+  } as const;
+  const matcher = asSchemaMatcher(schema);
+  type Type = typeof matcher._TYPE;
+  test("Testing valid", () => {
+    const input: Type = { a: "a", b: "b" };
+    matcher.unsafeCast(input);
+  });
+  test("Testing invalid", () => {
+    // @ts-expect-error
+    const input: Type = { a: "a", b: "e" };
+
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+  });
+});
+
 describe("enum types", () => {
   const testSchema = {
     type: ["string"],

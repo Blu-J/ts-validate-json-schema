@@ -9,8 +9,11 @@ const matchBooleanType = matches.literal("boolean");
 const matchNullType = matches.literal("null");
 
 type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
-type UnionToIntersection<U> = 
-  (U extends any ? (k: U)=>void : never) extends ((k: infer I)=>void) ? I : never
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I
+) => void
+  ? I
+  : never;
 
 type TypeString = typeof matchStringType._TYPE;
 type TypeNumber = typeof matchNumberType._TYPE;
@@ -19,17 +22,6 @@ type TypeObject = typeof matchObjectType._TYPE;
 type TypeArray = typeof matchArrayType._TYPE;
 type TypeBoolean = typeof matchBooleanType._TYPE;
 type TypeNull = typeof matchNullType._TYPE;
-
-type SchemaTypes =
-  | TypeString
-  | TypeNumber
-  | TypeInteger
-  | TypeObject
-  | TypeArray
-  | TypeBoolean
-  | TypeNull
-  | Array<SchemaTypes>
-  | ReadonlyArray<SchemaTypes>;
 
 const matchTypeShape = matches.shape({ type: matches.any });
 const matchItems = matches.shape({ items: matches.object });
@@ -45,8 +37,11 @@ const matchEnum = matches.shape({
   ),
 });
 const matchAnyOf = matches.shape({
-  anyOf: matches.arrayOf(matches.object)
-})
+  anyOf: matches.arrayOf(matches.object),
+});
+const matchAllOf = matches.shape({
+  allOf: matches.arrayOf(matches.object),
+});
 
 type ItemType<T> = T extends { items: infer U }
   ? Array<FromSchema<U>> | ReadonlyArray<FromSchema<U>>
@@ -78,7 +73,12 @@ type FromTypeRaw<T> =
   T extends TypeArray ? Array<unknown> :
   never
 
-type AnyOfType<T> = T extends {anyOf: infer U} ? AnyInLiteral<{[K in keyof U]: FromSchema<U[K]>}> : unknown
+type AnyOfType<T> = T extends { anyOf: infer U }
+  ? AnyInLiteral<{ [K in keyof U]: FromSchema<U[K]> }>
+  : unknown;
+type AllOfType<T> = T extends { allOf: infer U }
+  ? UnionToIntersection<AnyInLiteral<{ [K in keyof U]: FromSchema<U[K]> }>>
+  : unknown;
 
 // prettier-ignore
 type FromTypeProp<T> =
@@ -91,11 +91,12 @@ type FromType<T> = T extends { type: infer Type }
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type FromSchema<T> = 
-  FromType<T> &
+export type FromSchema<T> = FromType<T> &
   PropertiesType<T> &
   ItemType<T> &
-  EnumType<T> & AnyOfType<T>;
+  EnumType<T> &
+  AnyOfType<T> &
+  AllOfType<T>;
 
 /**
  * This is the main function. Use this to turn a json-schema into a validator. Is
@@ -110,7 +111,8 @@ export function asSchemaMatcher<T>(schema: T): Validator<FromSchema<T>> {
     matchPropertiesFrom(schema),
     matchItemsFrom(schema),
     matchEnumFrom(schema),
-    matchAnyOfFrom(schema)
+    matchAnyOfFrom(schema),
+    matchAllOfFrom(schema)
   );
 }
 
@@ -138,7 +140,14 @@ function matchAnyOfFrom(schema: unknown): Validator<any> {
   if (!matchAnyOf.test(schema)) {
     return matches.any;
   }
-  return matches.some(...schema.anyOf.map(asSchemaMatcher))
+  return matches.some(...schema.anyOf.map(asSchemaMatcher));
+}
+
+function matchAllOfFrom(schema: unknown): Validator<any> {
+  if (!matchAllOf.test(schema)) {
+    return matches.any;
+  }
+  return matches.every(...schema.allOf.map(asSchemaMatcher));
 }
 
 function matchPropertiesFrom(schema: unknown): Validator<any> {
@@ -163,9 +172,9 @@ function matchEnumFrom(schema: unknown): Validator<any> {
   return matches.some(...schema.enum.map((x) => matches.literal(x)));
 }
 
-function matchTypeFrom(schema: unknown): Validator<any> {  
+function matchTypeFrom(schema: unknown): Validator<any> {
   if (!matchTypeShape.test(schema)) {
-    return matches.any
+    return matches.any;
   }
   const type = schema.type;
   if (matches.arrayOf(matches.any).test(type)) {

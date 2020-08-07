@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Creating a validator for a JSON schema
 - Added in enums
 - Allow types to be array of schema types
 - Use the any of type
+- Use the all of type
+
+
+## [v1.0.0]
+
+### Added
+- Creating a validator for a JSON schema
