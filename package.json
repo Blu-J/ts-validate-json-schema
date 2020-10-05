@@ -24,6 +24,7 @@
   "scripts": {
     "ci": "concurrently -n build,test,lint \"npm run build\" \"npm run test\" \"npm run lint\"",
     "build": "tsc",
+    "install": "tsc",
     "test": "jest --coverage",
     "lint": "tslint --project tsconfig.json --format stylish",
     "pretty-check": "prettier --check src",
