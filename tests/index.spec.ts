@@ -1,4 +1,4 @@
-import { asSchemaMatcher } from ".";
+import { asSchemaMatcher } from "../src";
 
 test("invalid type will throw", () => {
   expect(() => {
