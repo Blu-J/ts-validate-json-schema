@@ -44,8 +44,8 @@ test("null checking", () => {
 test("Missing schema", () => {
   const matcher = asSchemaMatcher(null);
   type Type = typeof matcher._TYPE;
-  const valid = false
-  matcher.unsafeCast(valid)
+  const valid = false;
+  matcher.unsafeCast(valid);
 });
 describe("references", () => {
   test("Missing definition for reference in array", () => {
@@ -470,7 +470,9 @@ describe("any of types", () => {
     // @ts-expect-error
     const input: Type = "c";
 
-    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: some(literal[a](\\"c\\"), literal[b](\\"c\\")) given input \\"c\\""`
+    );
   });
 });
 
@@ -491,7 +493,9 @@ describe("all of types", () => {
     // @ts-expect-error
     const input: Type = { a: "a", b: "e" };
 
-    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingSnapshot();
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: partialShape(@b(literal[b](\\"e\\"))) given input {\\"a\\":\\"a\\",\\"b\\":\\"e\\"}"`
+    );
   });
 });
 

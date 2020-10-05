@@ -1,5 +1,0 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`all of types Testing invalid 1`] = `"Failed type: partialShape(@b(literal[b](\\"e\\"))) given input {\\"a\\":\\"a\\",\\"b\\":\\"e\\"}"`;
-
-exports[`any of types Testing invalid 1`] = `"Failed type: some(literal[a](\\"c\\"), literal[b](\\"c\\")) given input \\"c\\""`;
