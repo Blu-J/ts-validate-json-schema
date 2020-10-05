@@ -1,5 +1,5 @@
 {
-  "name": "blu-j-ts-validate",
+  "name": "ts-validate-json-schema",
   "version": "1.0.1",
   "repository": "git@github.com:Blu-J/ts-validate-json-schema.git",
   "author": "Justin Miller <dragondef@gmail.com>",
