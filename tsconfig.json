@@ -9,6 +9,6 @@
       "declaration": true,
       "noImplicitAny": true
     },
-    "include": ["src/**/*", "tests/index.spec.ts"]
+    "include": ["src/**/*"]
   }
   
