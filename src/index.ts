@@ -10,13 +10,13 @@ const matchNullType = matches.literal("null");
 
 type _<T> = T;
 // prettier-ignore
-export type Merge<T> = 
+export type MergeAll<T> = 
   T extends ReadonlyArray<infer U>
-    ? ReadonlyArray<U> 
+    ? ReadonlyArray<MergeAll<U>> 
     : T extends object 
       ? T extends null | undefined | never 
         ? T 
-        : _<{ [k in keyof T]: T[k] }> 
+        : _<{ [k in keyof T]: MergeAll<T[k]> }> 
       : T;
 
 type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
@@ -124,16 +124,16 @@ type Any<T> = T extends true ? any : unknown
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type FromSchema<T, D> = Merge<MatchReference<T, D>> &
+export type FromSchema<T, D> = MatchReference<T, D> &
   Any<T> &
   FromType<T> &
-  Merge<PropertiesType<T, D>> &
+  PropertiesType<T, D> &
   ItemType<T, D> &
   EnumType<T> &
   AnyOfType<T, D> &
   AllOfType<T, D>;
 
-export type FromSchemaTop<T> = Merge<FromSchema<T, Definitions<T>>>
+export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>
 
 /**
  * This is the main function. Use this to turn a json-schema into a validator. Is
