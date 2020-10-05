@@ -104,7 +104,7 @@ const testSchema = {
 - [x] Enum Type Validation
 - [x] allOf/ anyOf type
 - [x] Type allowed to be array of types
-- [ ] References to other schemas
+- [x] References to other schemas
 - [ ] Limit Validations (min/ max)
 
 
