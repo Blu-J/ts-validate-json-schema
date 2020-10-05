@@ -41,6 +41,12 @@ test("null checking", () => {
   );
 });
 
+test("Missing schema", () => {
+  const matcher = asSchemaMatcher(null);
+  type Type = typeof matcher._TYPE;
+  const valid = false
+  matcher.unsafeCast(valid)
+});
 describe("references", () => {
   test("Missing definition for reference in array", () => {
     expect(() => {
