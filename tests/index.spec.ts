@@ -523,6 +523,14 @@ describe("all of types", () => {
     const input: Type = { a: "a", b: "b" };
     matcher.unsafeCast(input);
   });
+  test("Testing invalid partial", () => {
+    // @ts-expect-error
+    const input: Type = { a: "a" };
+
+    expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: shape(hasProperty@b()) given input {\\"a\\":\\"a\\"}"`
+    );
+  });
   test("Testing invalid", () => {
     // @ts-expect-error
     const input: Type = { a: "a", b: "e" };
