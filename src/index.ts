@@ -92,8 +92,8 @@ type FromTypeRaw<T> =
 
 // prettier-ignore
 type AnyOfType<T, D> = 
-  T extends { anyOf: infer U } | { oneOf: infer U}
-    ? AnyInLiteral<{ [K in keyof U]: FromSchema<U[K], D> }>
+  T extends { anyOf: Array<infer U> | ReadonlyArray<infer U> } | { oneOf: Array<infer U> | ReadonlyArray<infer U>}
+    ? FromSchema<U, D>
     : unknown;
 type AllOfType<T, D> = T extends { allOf: infer U }
   ? UnionToIntersection<AnyInLiteral<{ [K in keyof U]: FromSchema<U[K], D> }>>
