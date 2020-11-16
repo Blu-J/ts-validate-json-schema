@@ -124,14 +124,19 @@ type Any<T> = T extends true ? any : unknown
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
-export type FromSchema<T, D> = MatchReference<T, D> &
-  Any<T> &
-  FromType<T> &
-  PropertiesType<T, D> &
-  ItemType<T, D> &
-  EnumType<T> &
-  AnyOfType<T, D> &
-  AllOfType<T, D>;
+// prettier-ignore
+export type FromSchema<T, D> = 
+  T extends ReadonlyArray<infer U> ? FromSchema<U, D> :
+  (
+    MatchReference<T, D> &
+    Any<T> &
+    FromType<T> &
+    PropertiesType<T, D> &
+    ItemType<T, D> &
+    EnumType<T> &
+    AnyOfType<T, D> &
+    AllOfType<T, D>
+  );
 
 export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>
 
@@ -143,6 +148,14 @@ export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>
  */
 export function asSchemaMatcher<T>(schema: T, definitions?: unknown): Validator<FromSchemaTop<T>> {
   const coalesceDefinitions = definitions || (schema as any)?.definitions || null;
+  if(Array.isArray(schema)){ 
+    return matchAllOfFrom(
+      {
+        allOf: schema
+      },
+      definitions
+    );
+  }
   return matches.every(
     matchReferenceFrom(schema, coalesceDefinitions),
     matchTypeFrom(schema, coalesceDefinitions),
@@ -244,7 +257,7 @@ function matchTypeFrom(schema: unknown, definitions: any): Validator<any> {
     .when(matchStringType, () => matches.string)
     .when(matchBooleanType, () => matches.boolean)
     .when(matchNullType, () => matches.nill)
-    .when(matchArrayType, (a) => {
+    .when(matchArrayType, () => {
       return matches.arrayOf(matches.any);
     })
     .defaultToLazy(() => {

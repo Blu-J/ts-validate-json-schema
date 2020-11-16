@@ -380,7 +380,7 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: arrayOf(@{i}(some(literal[USD](\\"Fun\\"), literal[ETH](\\"Fun\\"), literal[BTC](\\"Fun\\")))) given input [\\"Fun\\"]"`
+        `"Failed type: arrayOf(@0(some(literal[USD](\\"Fun\\"), literal[ETH](\\"Fun\\"), literal[BTC](\\"Fun\\")))) given input [\\"Fun\\"]"`
       );
     });
     test("Reference Disjoint", () => {
@@ -412,7 +412,41 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: arrayOf(@{i}(isObject(\\"Fun\\"))) given input [\\"Fun\\"]"`
+        `"Failed type: arrayOf(@0(isObject(\\"Fun\\"))) given input [\\"Fun\\"]"`
+      );
+    });
+    test("Reference Disjoint array", () => {
+      const schema = {
+        type: "array",
+        items: [
+          {
+            $ref: "#/definitions/Result_of_QuoteResponse_or_String",
+          },
+        ],
+        definitions,
+      } as const;
+      const matcher = asSchemaMatcher(schema);
+      type Type = typeof matcher._TYPE;
+      expect(() => {
+        const valid: Type = [
+          { Err: "Test" },
+          {
+            Ok: {
+              request_id: "string",
+              price: "string",
+              size: 5,
+              expiration_time: "string",
+            },
+          },
+        ];
+        matcher.unsafeCast(valid);
+      }).not.toThrow();
+      expect(() => {
+        // @ts-expect-error
+        const input: Type = ["wrongRequest"];
+        expect(matcher.unsafeCast(input));
+      }).toThrowErrorMatchingInlineSnapshot(
+        `"Failed type: arrayOf(@0(isObject(\\"wrongRequest\\"))) given input [\\"wrongRequest\\"]"`
       );
     });
     test("Full shape", () => {
@@ -446,7 +480,7 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: arrayOf(@{i}(isObject(\\"Fun\\"))) given input [\\"Fun\\"]"`
+        `"Failed type: arrayOf(@0(isObject(\\"Fun\\"))) given input [\\"Fun\\"]"`
       );
     });
   });
@@ -645,7 +679,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, tags: [0] };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: partialShape(@tags(arrayOf(@{i}(string(0))))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: partialShape(@tags(arrayOf(@0(string(0))))) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
