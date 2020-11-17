@@ -113,6 +113,33 @@ describe("references", () => {
       matcher.unsafeCast(value);
     });
   });
+  describe("Top level all of", () => {
+    const schema = {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      title: "Array_of_JsonRpcResponse",
+      allOf: [{ $ref: "#/definitions/Currency" }],
+      definitions: {
+        Currency: {
+          type: "string",
+          enum: ["USD", "ETH", "BTC"],
+        },
+      },
+    } as const;
+    const matcher = asSchemaMatcher(schema);
+    type Type = typeof matcher._TYPE;
+
+    test("valid", () => {
+      const value: Type = "USD";
+      matcher.unsafeCast(value);
+    });
+    expect(() => {
+      // @ts-expect-error
+      const input: Type = "BadCurrency";
+      expect(matcher.unsafeCast(input));
+    }).toThrowErrorMatchingInlineSnapshot(
+      `"Failed type: some(literal[USD](\\"BadCurrency\\"), literal[ETH](\\"BadCurrency\\"), literal[BTC](\\"BadCurrency\\")) given input \\"BadCurrency\\""`
+    );
+  });
   test("definitions not an object", () => {
     expect(() => {
       const schema = {
@@ -129,10 +156,12 @@ describe("references", () => {
     const definitions = {
       Currency: {
         type: "string",
+        description: "currencies available",
         enum: ["USD", "ETH", "BTC"],
       },
       ExecutionRequest: {
         type: "object",
+        description: "currencies available",
         required: ["limit", "request_id"],
         properties: {
           limit: {
