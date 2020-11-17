@@ -20,11 +20,6 @@ export type MergeAll<T> =
       : T;
 
 type AnyInLiteral<T extends Readonly<any> | Array<any>> = T[number];
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I
-) => void
-  ? I
-  : never;
 
 type TypeString = typeof matchStringType._TYPE;
 type TypeNumber = typeof matchNumberType._TYPE;
@@ -95,8 +90,17 @@ type AnyOfType<T, D> =
   T extends { anyOf: Array<infer U> | ReadonlyArray<infer U> } | { oneOf: Array<infer U> | ReadonlyArray<infer U>}
     ? FromSchema<U, D>
     : unknown;
+
+// prettier-ignore
+type AllTuple<T, D> = 
+  T extends [infer A] | readonly [infer A] ? FromSchema<A, D>
+  : T extends [infer A, ...infer B] | readonly [infer A, ...infer B] ? (FromSchema<A, D> & AllTuple<B, D>)
+  : 'umm'
+// prettier-ignore
 type AllOfType<T, D> = T extends { allOf: infer U }
-  ? UnionToIntersection<AnyInLiteral<{ [K in keyof U]: FromSchema<U[K], D> }>>
+  ? (
+    AllTuple<U, D>
+  ) 
   : unknown;
 
 
