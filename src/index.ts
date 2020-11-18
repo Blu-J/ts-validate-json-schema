@@ -95,7 +95,7 @@ type AnyOfType<T, D> =
 type AllTuple<T, D> = 
   T extends [infer A] | readonly [infer A] ? FromSchema<A, D>
   : T extends [infer A, ...infer B] | readonly [infer A, ...infer B] ? (FromSchema<A, D> & AllTuple<B, D>)
-  : 'umm'
+  : never
 // prettier-ignore
 type AllOfType<T, D> = T extends { allOf: infer U }
   ? (
