@@ -1,5 +1,5 @@
 lib/
-
+.vscode/
 # Logs
 logs
 *.log
