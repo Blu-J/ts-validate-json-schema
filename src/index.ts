@@ -33,7 +33,7 @@ const matchTypeShape = matches.shape({ type: matches.any });
 const matchItems = matches.shape({ items: matches.object });
 const matchPrortiesShape = matches.shape({
   properties: matches.object,
-});       
+});
 const matchRequireds = matches.shape({
   required: matches.arrayOf(matches.string),
 });
@@ -45,11 +45,14 @@ const matchEnum = matches.shape({
 const matchRef = matches.shape({
   $ref: matches.string,
 });
-const matchAnyOf = matches.some(matches.shape({
-  anyOf: matches.arrayOf(matches.object),
-}),matches.shape({
-  oneOf: matches.arrayOf(matches.object),
-}));
+const matchAnyOf = matches.some(
+  matches.shape({
+    anyOf: matches.arrayOf(matches.object),
+  }),
+  matches.shape({
+    oneOf: matches.arrayOf(matches.object),
+  })
+);
 const matchAllOf = matches.shape({
   allOf: matches.arrayOf(matches.object),
 });
@@ -103,7 +106,6 @@ type AllOfType<T, D> = T extends { allOf: infer U }
   ) 
   : unknown;
 
-
 // prettier-ignore
 type FromTypeProp<T> =
   T extends Array<infer U> | ReadonlyArray<infer U> ? FromTypeRaw<U> :
@@ -124,7 +126,7 @@ type Definitions<T> =
       U extends {} ? U : never
     ) : {}
 
-type Any<T> = T extends true ? any : unknown
+type Any<T> = T extends true ? any : unknown;
 /**
  * This schema is to pull out the typescript type from a json Schema
  */
@@ -142,7 +144,7 @@ export type FromSchema<T, D> =
     AllOfType<T, D>
   );
 
-export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>
+export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>;
 
 /**
  * This is the main function. Use this to turn a json-schema into a validator. Is
@@ -150,12 +152,16 @@ export type FromSchemaTop<T> = MergeAll<FromSchema<T, Definitions<T>>>
  * types out for typescript.
  * @param schema So this is a json schema that we want to turn into a validator
  */
-export function asSchemaMatcher<T>(schema: T, definitions?: unknown): Validator<FromSchemaTop<T>> {
-  const coalesceDefinitions = definitions || (schema as any)?.definitions || null;
-  if(Array.isArray(schema)){ 
+export function asSchemaMatcher<T>(
+  schema: T,
+  definitions?: unknown
+): Validator<unknown, FromSchemaTop<T>> {
+  const coalesceDefinitions =
+    definitions || (schema as any)?.definitions || null;
+  if (Array.isArray(schema)) {
     return matchAllOfFrom(
       {
-        allOf: schema
+        allOf: schema,
       },
       definitions
     );
@@ -172,18 +178,24 @@ export function asSchemaMatcher<T>(schema: T, definitions?: unknown): Validator<
   );
 }
 
-function matchItemsFrom(schema: unknown, definitions: any): Validator<any> {
+function matchItemsFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchItems.test(schema)) {
     return matches.any;
   }
   return matches.arrayOf(asSchemaMatcher<any>(schema.items, definitions));
 }
 
-function matchRequiredFrom(schema: unknown, definitions: any): Validator<any> {
+function matchRequiredFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchRequireds.test(schema)) {
     return matches.any;
   }
-  let requireds: { [key: string]: Validator<unknown> } = {};
+  let requireds: { [key: string]: Validator<unknown, unknown> } = {};
 
   for (const key of schema.required) {
     requireds[key] = matches.any;
@@ -192,30 +204,46 @@ function matchRequiredFrom(schema: unknown, definitions: any): Validator<any> {
   return matches.shape(requireds);
 }
 
-function matchAnyOfFrom(schema: unknown, definitions: any): Validator<any> {
+function matchAnyOfFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchAnyOf.test(schema)) {
     return matches.any;
   }
   if ("anyOf" in schema) {
-    return matches.some(...schema.anyOf.map(x => asSchemaMatcher<any>(x, definitions)));
+    return matches.some(
+      ...schema.anyOf.map((x) => asSchemaMatcher<any>(x, definitions))
+    );
   }
-  return matches.some(...schema.oneOf.map(x => asSchemaMatcher<any>(x, definitions)));
+  return matches.some(
+    ...schema.oneOf.map((x) => asSchemaMatcher<any>(x, definitions))
+  );
 }
 
-function matchAllOfFrom(schema: unknown, definitions: any): Validator<any> {
+function matchAllOfFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchAllOf.test(schema)) {
     return matches.any;
   }
-  return matches.every(...schema.allOf.map(x => asSchemaMatcher<any>(x, definitions)));
+  return matches.every(
+    // ts-ignore
+    ...schema.allOf.map((x) => asSchemaMatcher<any>(x, definitions))
+  );
 }
 
-function matchPropertiesFrom(schema: unknown, definitions: any): Validator<any> {
+function matchPropertiesFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchPrortiesShape.test(schema)) {
     return matches.any;
   }
   const properties = schema.properties;
   const propertyKeys = Object.keys(properties);
-  let shape: { [key: string]: Validator<unknown> } = {};
+  let shape: { [key: string]: Validator<unknown, unknown> } = {};
 
   for (const key of propertyKeys) {
     const matcher = asSchemaMatcher<any>((properties as any)[key], definitions);
@@ -224,29 +252,43 @@ function matchPropertiesFrom(schema: unknown, definitions: any): Validator<any> 
   return matches.partial(shape);
 }
 
-function matchEnumFrom(schema: unknown, definitions: any): Validator<any> {
+function matchEnumFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchEnum.test(schema)) {
     return matches.any;
   }
   return matches.some(...schema.enum.map((x) => matches.literal(x)));
 }
 
-function matchReferenceFrom(schema: unknown, definitions: any): Validator<any> {
+function matchReferenceFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchRef.test(schema)) {
     return matches.any;
   }
   if (!matches.object.test(definitions)) {
     throw new TypeError("Expecting some definitions");
   }
-  const referenceId = schema.$ref.replace(/^#\/definitions\//,'');
-  const referenceSchema = referenceId in definitions && (definitions as any)[referenceId];
+  const referenceId = schema.$ref.replace(/^#\/definitions\//, "");
+  const referenceSchema =
+    referenceId in definitions && (definitions as any)[referenceId];
   if (!referenceId || !referenceSchema) {
-    throw new TypeError(`Expecting the schema reference be something ${schema.$ref} in ${JSON.stringify(definitions)}`);
+    throw new TypeError(
+      `Expecting the schema reference be something ${
+        schema.$ref
+      } in ${JSON.stringify(definitions)}`
+    );
   }
   return asSchemaMatcher(referenceSchema, definitions);
 }
 
-function matchTypeFrom(schema: unknown, definitions: any): Validator<any> {
+function matchTypeFrom(
+  schema: unknown,
+  definitions: any
+): Validator<unknown, any> {
   if (!matchTypeShape.test(schema)) {
     return matches.any;
   }
@@ -254,7 +296,7 @@ function matchTypeFrom(schema: unknown, definitions: any): Validator<any> {
   if (matches.arrayOf(matches.any).test(type)) {
     return matches.some(...type.map(matchTypeFrom));
   }
-  return matches<Validator<any>>(type)
+  return matches<Validator<unknown, any>>(type)
     .when(matchIntegerType, () => matches.number)
     .when(matchNumberType, () => matches.number)
     .when(matchObjectType, () => matches.object)
