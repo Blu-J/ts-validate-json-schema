@@ -21,7 +21,7 @@ test("Validate simple object", () => {
     const test: Type = 5;
     matcher.unsafeCast(test);
   }).toThrowErrorMatchingInlineSnapshot(
-    `"Failed type: isObject(5) given input 5"`
+    `"Failed type: object(5) given input 5"`
   );
 });
 test("null checking", () => {
@@ -38,7 +38,7 @@ test("null checking", () => {
     const test: typeof matcher._TYPE = "test";
     matcher.unsafeCast(test);
   }).toThrowErrorMatchingInlineSnapshot(
-    `"Failed type: isNill(\\"test\\") given input \\"test\\""`
+    `"Failed type: null(\\"test\\") given input \\"test\\""`
   );
 });
 
@@ -138,7 +138,7 @@ describe("references", () => {
       const input: Type = "BadCurrency";
       expect(matcher.unsafeCast(input));
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: string |> ((literal<\\"USD\\"> || literal<\\"ETH\\">) || literal<\\"BTC\\">)(\\"BadCurrency\\") given input \\"BadCurrency\\""`
+      `"Failed type: Or<Literal<\\"USD\\">,...>(\\"BadCurrency\\") given input \\"BadCurrency\\""`
     );
   });
   test("definitions not an object", () => {
@@ -222,8 +222,7 @@ describe("references", () => {
             required: ["P3KExecutedQuotes"],
             properties: {
               P3KExecutedQuotes: {
-                $ref:
-                  "#/definitions/Result_of_Array_of_ExecutionRequest_or_String",
+                $ref: "#/definitions/Result_of_Array_of_ExecutionRequest_or_String",
               },
             },
           },
@@ -410,7 +409,7 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: isArray |> any |> isArray |> [0]string |> ((literal<\\"USD\\"> || literal<\\"ETH\\">) || literal<\\"BTC\\">)(\\"Fun\\") given input [\\"Fun\\"]"`
+        `"Failed type: [0]Or<Literal<\\"USD\\">,...>(\\"Fun\\") given input [\\"Fun\\"]"`
       );
     });
     test("Reference Disjoint", () => {
@@ -442,7 +441,7 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: isArray |> any |> isArray |> [0](isObject || isObject)(\\"Fun\\") given input [\\"Fun\\"]"`
+        `"Failed type: [0]Or<Concat<Concat<object,Shape<{Ok:any}>>,Partial<{Ok:Concat<Concat<object,Shape<{expiration_time:any,price:any,request_id:any,size:any}>>,Partial<{expiration_time:string,price:string,request_id:string,size:number}>>}>>,...>(\\"Fun\\") given input [\\"Fun\\"]"`
       );
     });
     test("Reference Disjoint array", () => {
@@ -476,7 +475,7 @@ describe("references", () => {
         const input: Type = ["wrongRequest"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: isArray |> any |> isArray |> [0](isObject || isObject)(\\"wrongRequest\\") given input [\\"wrongRequest\\"]"`
+        `"Failed type: [0]Or<Concat<Concat<object,Shape<{Ok:any}>>,Partial<{Ok:Concat<Concat<object,Shape<{expiration_time:any,price:any,request_id:any,size:any}>>,Partial<{expiration_time:string,price:string,request_id:string,size:number}>>}>>,...>(\\"wrongRequest\\") given input [\\"wrongRequest\\"]"`
       );
     });
     test("Full shape", () => {
@@ -510,7 +509,7 @@ describe("references", () => {
         const input: Type = ["Fun"];
         expect(matcher.unsafeCast(input));
       }).toThrowErrorMatchingInlineSnapshot(
-        `"Failed type: isArray |> any |> isArray |> [0]isObject(\\"Fun\\") given input [\\"Fun\\"]"`
+        `"Failed type: [0]object(\\"Fun\\") given input [\\"Fun\\"]"`
       );
     });
   });
@@ -535,7 +534,7 @@ describe("any of types", () => {
     const input: Type = "c";
 
     expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: (literal<\\"a\\"> || literal<\\"b\\">)(\\"c\\") given input \\"c\\""`
+      `"Failed type: Or<Literal<\\"a\\">,...>(\\"c\\") given input \\"c\\""`
     );
   });
 });
@@ -557,7 +556,7 @@ describe("all of types", () => {
     // @ts-expect-error
     const input: Type = { a: "a" };
     expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"a\\": any} |> {\\"a\\"?: literal<\\"a\\">} |> isObject |> [\\"b\\"]any(\\"missingProperty\\") given input {\\"a\\":\\"a\\"}"`
+      `"Failed type: [\\"b\\"]Shape<{b:any}>(\\"missingProperty\\") given input {\\"a\\":\\"a\\"}"`
     );
   });
   test("Testing invalid", () => {
@@ -565,7 +564,7 @@ describe("all of types", () => {
     const input: Type = { a: "a", b: "e" };
 
     expect(() => matcher.unsafeCast(input)).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"a\\": any} |> {\\"a\\"?: literal<\\"a\\">} |> isObject |> {\\"b\\": any} |> [\\"b\\"]literal<\\"b\\">(\\"e\\") given input {\\"a\\":\\"a\\",\\"b\\":\\"e\\"}"`
+      `"Failed type: [\\"b\\"]Literal<\\"b\\">(\\"e\\") given input {\\"a\\":\\"a\\",\\"b\\":\\"e\\"}"`
     );
   });
 });
@@ -587,7 +586,7 @@ describe("enum types", () => {
       const invalid: Type = "calculator";
       testMatcher.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: ((literal<\\"red\\"> || literal<\\"amber\\">) || literal<\\"green\\">)(\\"calculator\\") given input \\"calculator\\""`
+      `"Failed type: Or<Literal<\\"red\\">,...>(\\"calculator\\") given input \\"calculator\\""`
     );
   });
 });
@@ -677,7 +676,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = {};
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> [\\"productId\\"]any(\\"missingProperty\\") given input {}"`
+      `"Failed type: [\\"productId\\"]Shape<{productId:any,productName:any,price:any,errors:any}>(\\"missingProperty\\") given input {}"`
     );
   });
   test("throws for invalid integer", () => {
@@ -686,7 +685,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, productId: "0" };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"productId\\"]isNumber(\\"0\\") given input {\\"errors\\":null,\\"productId\\":\\"0\\",\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"productId\\"]number(\\"0\\") given input {\\"errors\\":null,\\"productId\\":\\"0\\",\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -696,7 +695,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, price: "invalid" };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"price\\"]isNumber(\\"invalid\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":\\"invalid\\",\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"price\\"]number(\\"invalid\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":\\"invalid\\",\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -706,7 +705,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, productName: 0 };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"productName\\"]string(0) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":0,\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"productName\\"]string(0) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":0,\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -716,7 +715,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, tags: [0] };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"tags\\"]isArray |> any |> isArray |> [0]string(0) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"tags\\"][0]string(0) given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[0],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -726,7 +725,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, extras: "invalid" };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"extras\\"]isArray(\\"invalid\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":\\"invalid\\",\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"extras\\"]Array<unknown>(\\"invalid\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":\\"invalid\\",\\"isProduct\\":false,\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -736,7 +735,7 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
       const invalid: TestSchema = { ...validShape, isProduct: "false" };
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"isProduct\\"]boolean(\\"false\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":\\"false\\",\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"isProduct\\"]boolean(\\"false\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":\\"false\\",\\"dimensions\\":{\\"length\\":7,\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 
@@ -750,9 +749,10 @@ describe("https://json-schema.org/learn/getting-started-step-by-step.html", () =
           height: 9.5,
         },
       };
+
       matchTestSchema.unsafeCast(invalid);
     }).toThrowErrorMatchingInlineSnapshot(
-      `"Failed type: isObject |> {\\"productId\\": any,\\"productName\\": any,\\"price\\": any,\\"errors\\": any} |> [\\"dimensions\\"]isObject |> [\\"length\\"]any(\\"missingProperty\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"width\\":12,\\"height\\":9.5}}"`
+      `"Failed type: [\\"dimensions\\"][\\"length\\"]Shape<{length:any,width:any,height:any}>(\\"missingProperty\\") given input {\\"errors\\":null,\\"productId\\":0,\\"price\\":0.4,\\"productName\\":\\"test\\",\\"tags\\":[\\"a\\"],\\"extras\\":[\\"string\\",4],\\"isProduct\\":false,\\"dimensions\\":{\\"width\\":12,\\"height\\":9.5}}"`
     );
   });
 

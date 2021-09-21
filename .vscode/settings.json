@@ -1,3 +1,4 @@
 {
-    "typescript.tsdk": "/Users/jmiller/Projects/ts-validate-json-schema/node_modules/typescript/lib"
+  "typescript.tsdk": "/Users/jmiller/Projects/ts-validate-json-schema/node_modules/typescript/lib",
+  "jest.jestCommandLine": "jest"
 }
